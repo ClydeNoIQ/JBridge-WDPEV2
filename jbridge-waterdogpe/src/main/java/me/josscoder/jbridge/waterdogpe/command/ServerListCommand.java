@@ -17,6 +17,8 @@ import java.util.StringJoiner;
 
 public class ServerListCommand extends Command {
 
+    private final ServiceHandler serviceHandler = JBridgeCore.getInstance().getServiceHandler();
+
     public ServerListCommand() {
         super("wdlist", CommandSettings.builder()
                 .setDescription("waterdog.command.list.description")
@@ -29,36 +31,34 @@ public class ServerListCommand extends Command {
 
     @Override
     public boolean onExecute(CommandSender sender, String alias, String[] args) {
-        ServiceHandler serviceHandler = JBridgeCore.getInstance().getServiceHandler();
-
         if (args.length >= 1) {
             ServerInfo serverInfo = sender.getProxy().getServerInfo(args[0]);
             sender.sendMessage(serverInfo == null
                     ? Color.RED + "Server not found!"
-                    : buildServerList(serverInfo, serviceHandler)
+                    : buildServerList(serverInfo)
             );
             return true;
         }
 
-        List<ServerInfo> servers = new ArrayList<>(sender.getProxy().getServers().values());
+        // getServers() now returns Collection<ServerInfo> directly
+        List<ServerInfo> servers = new ArrayList<>(sender.getProxy().getServers());
         servers.sort(Comparator.comparing(ServerInfo::getServerName));
 
         StringBuilder builder = new StringBuilder("§l§6Showing all servers:\n§r");
         for (ServerInfo serverInfo : servers) {
-            builder.append(buildServerList(serverInfo, serviceHandler)).append("\n");
+            builder.append(buildServerList(serverInfo)).append("\n").append(Color.RESET);
         }
 
-        builder.append(Color.GRAY).append("Total online players: ")
+        builder.append(Color.GRAY + "Total online players: ")
                 .append(sender.getProxy().getPlayers().size())
                 .append("/")
                 .append(serviceHandler.getMaxPlayers());
-
         sender.sendMessage(builder.toString());
         return true;
     }
 
-    private String buildServerList(ServerInfo serverInfo, ServiceHandler serviceHandler) {
-        StringJoiner joiner = new StringJoiner(", ");
+    private String buildServerList(ServerInfo serverInfo) {
+        StringJoiner joiner = new StringJoiner(",");
         for (ProxiedPlayer player : serverInfo.getPlayers()) {
             joiner.add(player.getName());
         }
