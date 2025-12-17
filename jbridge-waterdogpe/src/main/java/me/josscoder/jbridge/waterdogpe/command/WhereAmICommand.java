@@ -28,15 +28,19 @@ public class WhereAmICommand extends Command {
             return true;
         }
 
-        String serviceId = "?";
-
         ProxiedPlayer player = (ProxiedPlayer) sender;
 
+        String serverId = "?";
         ServerInfo serverInfo = player.getServerInfo();
-        if (serverInfo != null) serviceId = serverInfo.getServerName();
+        if (serverInfo != null) {
+            serverId = serverInfo.getServerName();
+        }
 
-        ServiceInfo serviceInfo = JBridgeCore.getInstance().getServiceHandler().getService(serviceId);
-        if (serverInfo != null) serviceId = serviceInfo.getGroupAndId();
+        ServiceInfo serviceInfo = JBridgeCore.getInstance()
+                .getServiceHandler()
+                .getService(serverId);
+
+        String serviceId = serviceInfo != null ? serviceInfo.getGroupAndId() : serverId;
 
         sender.sendMessage(Color.GOLD + "You are connected to proxy " + proxyId +
                 "\n" +
