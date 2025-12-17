@@ -1,10 +1,11 @@
 package me.josscoder.jbridge.waterdogpe;
 
+import dev.waterdog.waterdogpe.ProxyServer;
 import dev.waterdog.waterdogpe.command.CommandMap;
 import dev.waterdog.waterdogpe.event.EventManager;
-import dev.waterdog.waterdogpe.event.defaults.PreTransferEvent;
 import dev.waterdog.waterdogpe.event.defaults.ProxyPingEvent;
 import dev.waterdog.waterdogpe.event.defaults.ProxyQueryEvent;
+import dev.waterdog.waterdogpe.event.defaults.ServerTransferRequestEvent;
 import dev.waterdog.waterdogpe.logger.Color;
 import dev.waterdog.waterdogpe.network.serverinfo.ServerInfo;
 import dev.waterdog.waterdogpe.player.ProxiedPlayer;
@@ -25,10 +26,14 @@ public class JBridgeWaterdogPE extends Plugin {
     private static JBridgeWaterdogPE instance;
 
     @Override
-    public void onEnable() {
+    public void onStartup() {
         instance = this;
+    }
 
+    @Override
+    public void onEnable() {
         loadConfig();
+
         Configuration config = getConfig();
 
         JBridgeCore jBridgeCore = new JBridgeCore();
@@ -53,18 +58,16 @@ public class JBridgeWaterdogPE extends Plugin {
                 config.getString("service.branch", "dev"),
                 -1
         );
-
         jBridgeCore.setCurrentServiceInfo(serviceInfo);
 
         handleCommands();
         subscribeEvents();
 
-        int interval = config.getInt("service.handling-interval", 5);
+        int servicesHandlingInterval = config.getInt("service.handling-interval", 5);
 
-        // ✅ WaterdogPE v2 scheduler
         getProxy().getScheduler().scheduleRepeating(
                 new ServicePongTask(),
-                20L * interval,
+                20 * servicesHandlingInterval,
                 true
         );
     }
@@ -80,38 +83,31 @@ public class JBridgeWaterdogPE extends Plugin {
         EventManager manager = getProxy().getEventManager();
         manager.subscribe(ProxyPingEvent.class, this::onPing);
         manager.subscribe(ProxyQueryEvent.class, this::onQuery);
-        manager.subscribe(PreTransferEvent.class, this::onTransfer);
+        manager.subscribe(ServerTransferRequestEvent.class, this::onTransfer);
     }
 
     private void onPing(ProxyPingEvent event) {
         event.setMaximumPlayerCount(
-                JBridgeCore.getInstance()
-                        .getServiceHandler()
-                        .getMaxPlayers()
+                JBridgeCore.getInstance().getServiceHandler().getMaxPlayers()
         );
     }
 
     private void onQuery(ProxyQueryEvent event) {
         event.setMaximumPlayerCount(
-                JBridgeCore.getInstance()
-                        .getServiceHandler()
-                        .getMaxPlayers()
+                JBridgeCore.getInstance().getServiceHandler().getMaxPlayers()
         );
     }
 
-    private void onTransfer(PreTransferEvent event) {
+    private void onTransfer(ServerTransferRequestEvent event) {
         ProxiedPlayer player = event.getPlayer();
         ServerInfo targetServer = event.getTargetServer();
 
         if (player.getServerInfo() == null ||
                 targetServer == null ||
-                player.getServerInfo().getServerName()
-                        .equalsIgnoreCase(targetServer.getServerName())
+                player.getServerInfo().getServerName().equalsIgnoreCase(targetServer.getServerName())
         ) return;
 
-        player.sendMessage(
-                Color.GRAY + "Connecting you to " + targetServer.getServerName()
-        );
+        player.sendMessage(Color.GRAY + "Connecting you to " + targetServer.getServerName());
     }
 
     @Override
