@@ -12,7 +12,6 @@ on:
 jobs:
   build:
     name: Create Build
-    if: "startsWith(github.event.head_commit.message, '[Release]')"
     runs-on: ubuntu-latest
 
     steps:
