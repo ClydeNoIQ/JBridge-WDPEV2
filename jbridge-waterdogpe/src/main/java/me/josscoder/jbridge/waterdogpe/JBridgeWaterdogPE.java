@@ -1,15 +1,15 @@
 package me.josscoder.jbridge.waterdogpe;
 
-import dev.waterdog.waterdogpe.command.CommandMap;
-import dev.waterdog.waterdogpe.event.EventManager;
-import dev.waterdog.waterdogpe.event.defaults.PreTransferEvent;
-import dev.waterdog.waterdogpe.event.defaults.ProxyPingEvent;
-import dev.waterdog.waterdogpe.event.defaults.ProxyQueryEvent;
-import dev.waterdog.waterdogpe.logger.Color;
-import dev.waterdog.waterdogpe.network.serverinfo.ServerInfo;
-import dev.waterdog.waterdogpe.player.ProxiedPlayer;
-import dev.waterdog.waterdogpe.plugin.Plugin;
-import dev.waterdog.waterdogpe.utils.config.Configuration;
+import dev.waterdog.proxy.command.CommandMap;
+import dev.waterdog.proxy.event.EventManager;
+import dev.waterdog.proxy.event.defaults.PreTransferEvent;
+import dev.waterdog.proxy.event.defaults.ProxyPingEvent;
+import dev.waterdog.proxy.event.defaults.ProxyQueryEvent;
+import dev.waterdog.proxy.logger.Color;
+import dev.waterdog.proxy.network.serverinfo.ServerInfo;
+import dev.waterdog.proxy.player.ProxiedPlayer;
+import dev.waterdog.proxy.plugin.Plugin;
+import dev.waterdog.proxy.utils.config.Configuration;
 import lombok.Getter;
 import me.josscoder.jbridge.JBridgeCore;
 import me.josscoder.jbridge.service.ServiceInfo;
@@ -18,6 +18,7 @@ import me.josscoder.jbridge.waterdogpe.command.WhereAmICommand;
 import me.josscoder.jbridge.waterdogpe.task.ServicePongTask;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class JBridgeWaterdogPE extends Plugin {
 
@@ -25,18 +26,15 @@ public class JBridgeWaterdogPE extends Plugin {
     private static JBridgeWaterdogPE instance;
 
     @Override
-    public void onStartup() {
-        instance = this;
-    }
-
-    @Override
     public void onEnable() {
-        loadConfig();
+        instance = this;
 
+        loadConfig();
         Configuration config = getConfig();
 
         JBridgeCore jBridgeCore = new JBridgeCore();
-        jBridgeCore.boot(config.getString("redis.hostname"),
+        jBridgeCore.boot(
+                config.getString("redis.hostname"),
                 config.getInt("redis.port"),
                 config.getString("redis.password"),
                 config.getBoolean("debug"),
@@ -56,27 +54,32 @@ public class JBridgeWaterdogPE extends Plugin {
                 config.getString("service.branch", "dev"),
                 -1
         );
+
         jBridgeCore.setCurrentServiceInfo(serviceInfo);
 
-        handleCommands();
-        subscribeEvents();
+        registerCommands();
+        registerEvents();
 
-        int servicesHandlingInterval = config.getInt("service.handling-interval", 5);
+        int interval = config.getInt("service.handling-interval", 5);
 
-        getProxy().getScheduler().scheduleRepeating(new ServicePongTask(),
-                20 * servicesHandlingInterval,
-                true
+        // WaterdogPE v2 scheduler
+        getProxy().getScheduler().scheduleRepeating(
+                this,
+                new ServicePongTask(),
+                interval,
+                interval,
+                TimeUnit.SECONDS
         );
     }
 
-    private void handleCommands() {
+    private void registerCommands() {
         CommandMap map = getProxy().getCommandMap();
         map.unregisterCommand("wdlist");
         map.registerCommand(new WhereAmICommand());
         map.registerCommand(new ServerListCommand());
     }
 
-    private void subscribeEvents() {
+    private void registerEvents() {
         EventManager manager = getProxy().getEventManager();
         manager.subscribe(ProxyPingEvent.class, this::onPing);
         manager.subscribe(ProxyQueryEvent.class, this::onQuery);
@@ -84,11 +87,19 @@ public class JBridgeWaterdogPE extends Plugin {
     }
 
     private void onPing(ProxyPingEvent event) {
-        event.setMaximumPlayerCount(JBridgeCore.getInstance().getServiceHandler().getMaxPlayers());
+        event.setMaximumPlayerCount(
+                JBridgeCore.getInstance()
+                        .getServiceHandler()
+                        .getMaxPlayers()
+        );
     }
 
     private void onQuery(ProxyQueryEvent event) {
-        event.setMaximumPlayerCount(JBridgeCore.getInstance().getServiceHandler().getMaxPlayers());
+        event.setMaximumPlayerCount(
+                JBridgeCore.getInstance()
+                        .getServiceHandler()
+                        .getMaxPlayers()
+        );
     }
 
     private void onTransfer(PreTransferEvent event) {
@@ -97,10 +108,15 @@ public class JBridgeWaterdogPE extends Plugin {
 
         if (player.getServerInfo() == null ||
                 targetServer == null ||
-                player.getServerInfo().getServerName().equalsIgnoreCase(targetServer.getServerName())
-        ) return;
+                player.getServerInfo().getServerName()
+                        .equalsIgnoreCase(targetServer.getServerName())
+        ) {
+            return;
+        }
 
-        player.sendMessage(Color.GRAY + "Connecting you to " + targetServer.getServerName());
+        player.sendMessage(
+                Color.GRAY + "Connecting you to " + targetServer.getServerName()
+        );
     }
 
     @Override
