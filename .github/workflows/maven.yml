@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build jbridge-waterdogpe
+    name: Build jbridge modules
     runs-on: ubuntu-latest
 
     steps:
@@ -21,15 +21,15 @@ jobs:
           distribution: 'corretto'
           cache: maven
 
-      - name: Build jbridge-waterdogpe
-        run: mvn -pl jbridge-waterdogpe clean install
+      - name: Build jbridge-common and jbridge-waterdogpe
+        run: mvn clean install -pl jbridge-common,jbridge-waterdogpe
 
       - name: Get Maven version
         run: |
           VERSION=$(mvn -q -Dexec.executable='echo' -Dexec.args='${project.version}' --non-recursive exec:exec)
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: Upload Artifact
+      - name: Upload jbridge-waterdogpe Artifact
         uses: ncipollo/release-action@v1.10.0
         with:
           artifacts: ${{ github.workspace }}/jbridge-waterdogpe/target/*.jar
