@@ -1,6 +1,3 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
-
 name: Java CI with Maven
 
 on:
@@ -11,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Create Build
+    name: Build jbridge-waterdogpe
     runs-on: ubuntu-latest
 
     steps:
@@ -24,23 +21,23 @@ jobs:
           distribution: 'corretto'
           cache: maven
 
-      - name: Build
-        run: mvn clean install
+      - name: Build jbridge-waterdogpe
+        run: mvn -pl jbridge-waterdogpe clean install
 
       - name: Get Maven version
         run: |
           VERSION=$(mvn -q -Dexec.executable='echo' -Dexec.args='${project.version}' --non-recursive exec:exec)
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV        
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Upload Artifact
         uses: ncipollo/release-action@v1.10.0
         with:
-          artifacts: ${{ github.workspace }}/jbridge-common/target/*.jar, ${{ github.workspace }}/jbridge-nukkit/target/*.jar, ${{ github.workspace }}/jbridge-waterdogpe/target/*.jar, ${{ github.workspace }}/jbridge-lobby/jbridge-lobby-nukkit/target/*.jar, ${{ github.workspace }}/jbridge-lobby/jbridge-lobby-waterdogpe/target/*.jar
+          artifacts: ${{ github.workspace }}/jbridge-waterdogpe/target/*.jar
           draft: false
           name: Release v${{ env.VERSION }}
           tag: ${{ env.VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: "The artifacts are kept up to date with the branch release."
+          body: "jbridge-waterdogpe artifact built from release branch."
           commit: ${{ github.sha }}
           allowUpdates: true
           removeArtifacts: true
