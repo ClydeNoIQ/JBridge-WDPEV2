@@ -2,7 +2,7 @@
 
 
 <p align="center">
-JBridge facilitates communication in minecraft bedrock networks, between Nukkit servers and WaterdogPE proxies using Redis
+JBridge (for WDPE V2) facilitates communication in minecraft bedrock networks, between Nukkit servers and WaterdogPE proxies using Redis
 
 ## Features 📃
 
