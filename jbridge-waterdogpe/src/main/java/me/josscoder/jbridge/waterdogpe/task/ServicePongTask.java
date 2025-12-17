@@ -13,51 +13,43 @@ import java.util.Map;
 
 public class ServicePongTask implements Runnable {
 
+    private final ProxyServer proxy = ProxyServer.getInstance();
+    private final Logger logger = JBridgeWaterdogPE.getInstance().getLogger();
+
     @Override
     public void run() {
-        ProxyServer proxy = ProxyServer.getInstance();
-        Logger logger = JBridgeWaterdogPE.getInstance().getLogger();
-
         Map<String, ServiceInfo> cacheServers = JBridgeCore.getInstance()
                 .getServiceHandler()
                 .getServiceInfoMapCache();
 
-        // Clone to avoid concurrent modification issues
-        proxy.getServers().values().forEach(bedrockServer -> {
+        // iterate over proxy servers (Collection<ServerInfo> in v2)
+        for (ServerInfo bedrockServer : proxy.getServers()) {
+            if (cacheServers.containsKey(bedrockServer.getServerName())) {
+                ServiceInfo service = cacheServers.get(bedrockServer.getServerName());
+                String address = bedrockServer.getAddress().getHostString() + ":" + bedrockServer.getAddress().getPort();
 
-            String serverName = bedrockServer.getServerName();
-
-            if (cacheServers.containsKey(serverName)) {
-                ServiceInfo service = cacheServers.get(serverName);
-
-                String currentAddress =
-                        bedrockServer.getAddress().getHostString() + ":" +
-                        bedrockServer.getAddress().getPort();
-
-                if (!service.getAddress().equalsIgnoreCase(currentAddress)) {
+                if (!service.getAddress().equalsIgnoreCase(address)) {
                     bedrockServer.getPlayers().forEach(player ->
-                            player.disconnect("Server IP changed while online, duplicate server?")
+                            player.disconnect("Server IP changes while online, duplicate server?")
                     );
-
-                    proxy.removeServerInfo(serverName);
-                    registerService(proxy, logger, service, AddType.UPDATE_ADDRESS);
+                    proxy.removeServerInfo(bedrockServer.getServerName());
+                    registerService(service, AddType.UPDATE_ADDRESS);
                 }
             } else {
                 bedrockServer.getPlayers().forEach(player ->
                         player.disconnect("Server timed out, broken connection?")
                 );
-
-                proxy.removeServerInfo(serverName);
-                logger.info("Removed {} due to timeout...", serverName);
+                proxy.removeServerInfo(bedrockServer.getServerName());
+                logger.info(String.format("Removed %s due to timeout...", bedrockServer.getServerName()));
             }
-        });
+        }
 
-        // Register missing services
-        cacheServers.values().stream()
-                .filter(service -> proxy.getServerInfo(service.getShortId()) == null)
-                .forEach(service ->
-                        registerService(proxy, logger, service, AddType.NORMAL)
-                );
+        // iterate over cached services
+        for (ServiceInfo service : cacheServers.values()) {
+            if (proxy.getServerInfo(service.getShortId()) == null) {
+                registerService(service, AddType.NORMAL);
+            }
+        }
     }
 
     private enum AddType {
@@ -65,45 +57,28 @@ public class ServicePongTask implements Runnable {
         UPDATE_ADDRESS
     }
 
-    private void registerService(
-            ProxyServer proxy,
-            Logger logger,
-            ServiceInfo service,
-            AddType addType
-    ) {
-        String[] addressSplit = service.getAddress().split(":");
-        InetSocketAddress socketAddress = new InetSocketAddress(
-                addressSplit[0],
-                Integer.parseInt(addressSplit[1])
-        );
+    private void registerService(ServiceInfo service, AddType addType) {
+        String[] newAddress = service.getAddress().split(":");
+        InetSocketAddress socketAddress = new InetSocketAddress(newAddress[0], Integer.parseInt(newAddress[1]));
 
-        ServerInfo serverInfo = new BedrockServerInfo(
-                service.getShortId(),
-                socketAddress,
-                socketAddress
-        );
-
+        ServerInfo serverInfo = new BedrockServerInfo(service.getShortId(), socketAddress, socketAddress);
         boolean registered = proxy.registerServerInfo(serverInfo);
 
         if (registered) {
-            if (addType == AddType.NORMAL) {
-                logger.info(
-                        "Added {} ({}:{})",
-                        service.getRegionGroupAndShortId(),
-                        addressSplit[0],
-                        addressSplit[1]
-                );
-            } else {
-                logger.warn(
-                        "Server IP for \"{}\" updated!",
-                        service.getRegionGroupAndShortId()
-                );
+            switch (addType) {
+                case NORMAL:
+                    logger.info(String.format("Added %s (%s:%s)", service.getRegionGroupAndShortId(),
+                            newAddress[0], newAddress[1])
+                    );
+                    break;
+                case UPDATE_ADDRESS:
+                    logger.warn(String.format("Server IP for \"%s\" updated!", service.getRegionGroupAndShortId()));
+                    break;
             }
         } else {
-            logger.warn(
-                    "Could not add server {} because it already exists",
+            logger.warn(String.format("Could not add server %s because it already exists",
                     service.getRegionGroupAndShortId()
-            );
+            ));
         }
     }
 }
